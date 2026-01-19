@@ -1,75 +1,72 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const multer = require('multer');
-const nodemailer = require('nodemailer');
-const { stringify } = require('csv-stringify');
+require("dotenv").config();
+const express = require("express");
+const cors = require("cors");
+const bodyParser = require("body-parser");
+const nodemailer = require("nodemailer");
 
 const app = express();
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(bodyParser.json());
 
-const upload = multer({ dest: 'uploads/' });
+const orders = new Map(); // sessionId -> array of color batches
 
-// Nodemailer transporter
-const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST,
-  port: process.env.EMAIL_PORT,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
-  }
-});
-
-// Generate Batch ID
-function batchID() {
-  return "8W" + Math.floor(100000 + Math.random() * 900000);
+function getSession(req) {
+  return req.headers["x-session-id"] || "demo-session";
 }
 
-// POST /api/batch - manual form submission
-app.post('/api/batch', async (req, res) => {
-  try {
-    const { tags, color } = req.body; // tags = array of rows [{line1,line2,line3,line4,note}]
-    const id = batchID();
+app.post("/add-color", (req, res) => {
+  const session = getSession(req);
+  const { colorName, colorHex, tags } = req.body;
 
-    // Build CSV
-    const csvData = [];
-    csvData.push(['Line1','Line2','Line3','Line4','Note','Color']);
-    tags.forEach(r => {
-      csvData.push([r.line1,r.line2,r.line3,r.line4,r.note,color]);
-    });
+  if (!orders.has(session)) orders.set(session, []);
+  orders.get(session).push({ colorName, colorHex, tags });
 
-    stringify(csvData, (err, output) => {
-      if(err) return res.status(500).json({error: 'CSV generation failed'});
-      
-      // Email CSV
-      transporter.sendMail({
-        from: `"R.J. Machine" <no-reply@rjmachine.com>`,
-        to: process.env.EMAIL_TO,
-        subject: `Bulk Acc Tag Form - ${id}`,
-        text: `Attached CSV for Batch ${id}`,
-        attachments: [
-          { filename: `batch-${id}.csv`, content: output }
-        ]
-      }, (err, info) => {
-        if(err) console.error(err);
-      });
-
-      res.json({ batchID: id, totalTags: tags.length, color });
-    });
-
-  } catch(err) {
-    console.error(err);
-    res.status(500).json({error:'Server error'});
-  }
+  res.json({ success: true });
 });
 
-// POST /api/batch/upload - optional CSV upload
-app.post('/api/batch/upload', upload.single('file'), (req,res) => {
-  // TODO: parse CSV and return JSON
-  res.json({message:'File uploaded', filename:req.file.originalname});
+app.get("/summary", (req, res) => {
+  const session = getSession(req);
+  res.json(orders.get(session) || []);
+});
+
+app.post("/finalize", async (req, res) => {
+  const session = getSession(req);
+  const batches = orders.get(session) || [];
+
+  if (!batches.length) {
+    return res.status(400).json({ error: "No data" });
+  }
+
+  // Email (optional now)
+  if (process.env.EMAIL_TO) {
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: 587,
+      secure: false,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS
+      }
+    });
+
+    const text = JSON.stringify(batches, null, 2);
+
+    await transporter.sendMail({
+      from: "orders@yourdomain.com",
+      to: process.env.EMAIL_TO,
+      subject: "New Bulk Tag Order",
+      text
+    });
+  }
+
+  orders.delete(session);
+
+  res.json({ success: true, batches });
+});
+
+app.get("/", (req, res) => {
+  res.send("Bulk Tags API running");
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => console.log("API running on", PORT));

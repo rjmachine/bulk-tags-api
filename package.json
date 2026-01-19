@@ -6,11 +6,10 @@
     "start": "node server.js"
   },
   "dependencies": {
-  "express": "^4.x",
-  "cors": "^2.x",
-  "dotenv": "^17.x",
-  "multer": "^2.0.2",
-  "csv-stringify": "^6.x",
-  "nodemailer": "^6.x"
-}
+    "cors": "^2.x",
+    "dotenv": "^17.x",
+    "express": "^4.x",
+    "multer": "^2.0.2",
+    "nodemailer": "^6.x"
+  }
 }
