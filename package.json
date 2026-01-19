@@ -1,17 +1,16 @@
 {
   "name": "bulk-tags-api",
   "version": "1.0.0",
-  "description": "Backend for bulk tag personalization",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "cors": "^2.8.5",
-    "csv-stringify": "^6.6.0",
-    "dotenv": "^17.2.3",
-    "express": "^4.22.1",
-    "multer": "^1.4.5-lts.1",
-    "nodemailer": "^6.10.1"
-  }
+  "express": "^4.x",
+  "cors": "^2.x",
+  "dotenv": "^17.x",
+  "multer": "^2.0.2",
+  "csv-stringify": "^6.x",
+  "nodemailer": "^6.x"
+}
 }
