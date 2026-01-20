@@ -2,31 +2,46 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const bodyParser = require('body-parser');
 
 dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors()); // allow cross-origin requests
-app.use(bodyParser.json());
+app.use(cors());
+app.use(express.json());
 
-// simple in-memory store
 let submissions = [];
 
-app.post('/submit', (req,res) => {
+app.post('/submit', (req, res) => {
   try {
     const { color, tags } = req.body;
-    if (!color || !tags || !tags.length) {
-      return res.status(400).send('Color and at least one tag required');
+
+    if (!color || !Array.isArray(tags) || tags.length === 0) {
+      return res.status(400).json({ error: 'Invalid payload' });
     }
-    submissions.push({ color, tags, date: new Date() });
-    console.log('Received submission:', color, tags);
-    res.status(200).send('Submission received successfully');
-  } catch(err) {
+
+    const record = {
+      id: Date.now(),
+      color,
+      tags,
+      date: new Date()
+    };
+
+    submissions.push(record);
+
+    console.log('Received submission:', record);
+
+    res.status(200).json({ success: true, record });
+  } catch (err) {
     console.error(err);
-    res.status(500).send('Server error: ' + err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.get('/health', (req, res) => {
+  res.status(200).send('OK');
+});
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
