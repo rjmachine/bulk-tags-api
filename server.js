@@ -1,47 +1,94 @@
-// server.js
-const express = require('express');
-const cors = require('cors');
-const dotenv = require('dotenv');
+import express from "express";
+import cors from "cors";
 
-dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// --------------------
+// Middleware
+// --------------------
 app.use(cors());
 app.use(express.json());
 
-let submissions = [];
+// --------------------
+// Existing submit endpoint
+// --------------------
+app.post("/submit", (req, res) => {
+  console.log("Submit endpoint hit");
+  res.json({ success: true });
+});
 
-app.post('/submit', (req, res) => {
+// --------------------
+// Add to cart endpoint
+// --------------------
+app.post("/add-to-cart", async (req, res) => {
+  console.log("Add to cart endpoint hit");
+
   try {
-    const { color, tags } = req.body;
+    const { submissions } = req.body;
 
-    if (!color || !Array.isArray(tags) || tags.length === 0) {
-      return res.status(400).json({ error: 'Invalid payload' });
+    if (!submissions || !submissions.length) {
+      return res.status(400).json({ success: false, error: "No submissions provided" });
     }
 
-    const record = {
-      id: Date.now(),
-      color,
-      tags,
-      date: new Date()
-    };
+    const apiKey = process.env.SQUARESPACE_API_KEY;
+    const productId = process.env.BULK_TAG_PRODUCT_ID;
 
-    submissions.push(record);
+    if (!apiKey || !productId) {
+      console.error("Missing env vars");
+      return res.status(500).json({ success: false, error: "Missing environment variables" });
+    }
 
-    console.log('Received submission:', record);
+    for (const s of submissions) {
+      for (const tag of s.tags) {
 
-    res.status(200).json({ success: true, record });
+        const payload = {
+          lineItems: [
+            {
+              productId: productId,
+              quantity: 1
+            }
+          ]
+        };
+
+        const response = await fetch(
+          "https://api.squarespace.com/1.0/commerce/orders/current/cart",
+          {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${apiKey}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify(payload)
+          }
+        );
+
+        const text = await response.text();
+
+        if (!response.ok) {
+          console.error("Squarespace API error:", text);
+          return res.status(500).json({ success: false, error: text });
+        }
+      }
+    }
+
+    console.log("All items added to cart successfully");
+    res.json({ success: true });
+
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
+    console.error("Add to cart failure:", err);
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
-app.get('/health', (req, res) => {
-  res.status(200).send('OK');
+// --------------------
+// Health check
+// --------------------
+app.get("/", (req, res) => {
+  res.send("Bulk Tags API running");
 });
 
+// --------------------
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Bulk Tags backend running on port ${PORT}`);
 });
