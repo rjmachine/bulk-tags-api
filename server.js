@@ -11,7 +11,7 @@ app.use(cors());
 app.use(express.json());
 
 // --------------------
-// Submit endpoint (existing functionality)
+// Submit endpoint
 // --------------------
 app.post("/submit", (req, res) => {
   console.log("Submit endpoint hit");
@@ -19,7 +19,7 @@ app.post("/submit", (req, res) => {
 });
 
 // --------------------
-// Add to cart endpoint (updated Squarespace endpoint)
+// Add to cart endpoint (debug-ready)
 // --------------------
 app.post("/add-to-cart", async (req, res) => {
   console.log("Add to cart endpoint hit");
@@ -45,14 +45,16 @@ app.post("/add-to-cart", async (req, res) => {
         const payload = {
           lineItems: [
             {
-              productId: productId,
+              productId: productId, // if your product is a variant, use variantId instead
               quantity: 1
             }
           ]
         };
 
+        console.log("Payload being sent to Squarespace:", JSON.stringify(payload));
+
         const response = await fetch(
-          "https://api.squarespace.com/1.0/commerce/cart", // ✅ updated endpoint
+          "https://api.squarespace.com/1.0/commerce/cart", // updated endpoint
           {
             method: "POST",
             headers: {
@@ -64,31 +66,4 @@ app.post("/add-to-cart", async (req, res) => {
         );
 
         const text = await response.text();
-
-        if (!response.ok) {
-          console.error("Squarespace API error:", text);
-          return res.status(500).json({ success: false, error: text });
-        }
-      }
-    }
-
-    console.log("All items added to cart successfully");
-    res.json({ success: true });
-
-  } catch (err) {
-    console.error("Add to cart failure:", err);
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// --------------------
-// Health check
-// --------------------
-app.get("/", (req, res) => {
-  res.send("Bulk Tags API running");
-});
-
-// --------------------
-app.listen(PORT, () => {
-  console.log(`Bulk Tags backend running on port ${PORT}`);
-});
+        console.log("Response
