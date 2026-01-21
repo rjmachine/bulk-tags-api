@@ -11,7 +11,7 @@ app.use(cors());
 app.use(express.json());
 
 // --------------------
-// Existing submit endpoint
+// Submit endpoint (existing functionality)
 // --------------------
 app.post("/submit", (req, res) => {
   console.log("Submit endpoint hit");
@@ -19,7 +19,7 @@ app.post("/submit", (req, res) => {
 });
 
 // --------------------
-// Add to cart endpoint
+// Add to cart endpoint (updated Squarespace endpoint)
 // --------------------
 app.post("/add-to-cart", async (req, res) => {
   console.log("Add to cart endpoint hit");
@@ -52,7 +52,7 @@ app.post("/add-to-cart", async (req, res) => {
         };
 
         const response = await fetch(
-          "https://api.squarespace.com/1.0/commerce/orders/current/cart",
+          "https://api.squarespace.com/1.0/commerce/cart", // ✅ updated endpoint
           {
             method: "POST",
             headers: {
