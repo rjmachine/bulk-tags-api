@@ -1,5 +1,4 @@
 import express from "express";
-import fetch from "node-fetch";
 import cors from "cors";
 
 const app = express();
@@ -26,7 +25,7 @@ app.post("/add-to-cart", async (req, res) => {
   try {
     const { submissions } = req.body;
 
-    if (!submissions || !Array.isArray(submissions)) {
+    if (!Array.isArray(submissions)) {
       return res.status(400).json({ error: "Invalid submissions" });
     }
 
@@ -44,7 +43,7 @@ app.post("/add-to-cart", async (req, res) => {
       {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${SQUARESPACE_API_KEY}`,
+          Authorization: `Bearer ${SQUARESPACE_API_KEY}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify(payload)
