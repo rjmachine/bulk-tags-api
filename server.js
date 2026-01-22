@@ -1,99 +1,74 @@
 import express from "express";
+import fetch from "node-fetch";
 import cors from "cors";
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 
-// --------------------
-// Middleware
-// --------------------
 app.use(cors());
 app.use(express.json());
 
-// --------------------
-// Submit endpoint
-// --------------------
-app.post("/submit", (req, res) => {
-  console.log("Submit endpoint hit");
-  res.json({ success: true });
+const SQUARESPACE_API_KEY = process.env.SQUARESPACE_API_KEY;
+const SITE_ID = process.env.SQUARESPACE_SITE_ID;
+
+app.get("/", (req, res) => {
+  res.send("Bulk Tags API running");
 });
 
-// --------------------
-// Add to cart endpoint (debug-ready, no line breaks in strings)
-// --------------------
+app.post("/submit", (req, res) => {
+  console.log("Submit endpoint hit");
+  res.json({ ok: true });
+});
+
 app.post("/add-to-cart", async (req, res) => {
   console.log("Add to cart endpoint hit");
 
   try {
     const { submissions } = req.body;
 
-    if (!submissions || !submissions.length) {
-      return res.status(400).json({ success: false, error: "No submissions provided" });
+    if (!submissions || !Array.isArray(submissions)) {
+      return res.status(400).json({ error: "Invalid submissions" });
     }
 
-    const apiKey = process.env.SQUARESPACE_API_KEY;
-    const productId = process.env.BULK_TAG_PRODUCT_ID;
+    const lineItems = submissions.map(item => ({
+      productId: item.productId,
+      quantity: item.quantity || 1
+    }));
 
-    if (!apiKey || !productId) {
-      console.error("Missing environment variables");
-      return res.status(500).json({ success: false, error: "Missing environment variables" });
-    }
+    const payload = { lineItems };
 
-    for (const s of submissions) {
-      for (const tag of s.tags) {
+    console.log("Payload being sent to Squarespace:", JSON.stringify(payload));
 
-        const payload = {
-          lineItems: [
-            {
-              productId: productId, // if your product is a variant, use variantId instead
-              quantity: 1
-            }
-          ]
-        };
-
-        // ✅ Log payload and response for debugging
-        console.log(`Payload being sent to Squarespace: ${JSON.stringify(payload)}`);
-
-        const response = await fetch(
-          "https://api.squarespace.com/1.0/commerce/cart", // updated endpoint
-          {
-            method: "POST",
-            headers: {
-              "Authorization": `Bearer ${apiKey}`,
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify(payload)
-          }
-        );
-
-        const text = await response.text();
-        console.log(`Response status: ${response.status}`);
-        console.log(`Response text: ${text}`);
-
-        if (!response.ok) {
-          console.error("Squarespace API error:", text);
-          return res.status(500).json({ success: false, error: text });
-        }
+    const response = await fetch(
+      `https://api.squarespace.com/1.0/commerce/cart/items?siteId=${SITE_ID}`,
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${SQUARESPACE_API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
       }
+    );
+
+    const text = await response.text();
+
+    console.log("Response status:", response.status);
+    console.log("Response text:", text);
+
+    if (!response.ok) {
+      console.error("Squarespace API error:", text);
+      return res.status(500).json({ error: "Squarespace API error" });
     }
 
-    console.log("All items added to cart successfully");
     res.json({ success: true });
 
   } catch (err) {
-    console.error("Add to cart failure:", err);
-    res.status(500).json({ success: false, error: err.message });
+    console.error("Server error:", err);
+    res.status(500).json({ error: "Server error" });
   }
 });
 
-// --------------------
-// Health check
-// --------------------
-app.get("/", (req, res) => {
-  res.send("Bulk Tags API running");
-});
-
-// --------------------
 app.listen(PORT, () => {
   console.log(`Bulk Tags backend running on port ${PORT}`);
 });
