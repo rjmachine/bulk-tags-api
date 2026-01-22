@@ -1,4 +1,5 @@
 import express from "express";
+import fetch from "node-fetch";
 import cors from "cors";
 
 const app = express();
@@ -7,64 +8,50 @@ const PORT = process.env.PORT || 10000;
 app.use(cors());
 app.use(express.json());
 
-const SQUARESPACE_API_KEY = process.env.SQUARESPACE_API_KEY;
-const SITE_ID = process.env.SQUARESPACE_SITE_ID;
-
-app.get("/", (req, res) => {
-  res.send("Bulk Tags API running");
-});
-
-app.post("/submit", (req, res) => {
-  console.log("Submit endpoint hit");
-  res.json({ ok: true });
-});
-
-app.post("/add-to-cart", async (req, res) => {
-  console.log("Add to cart endpoint hit");
-
+app.post("/submit", async (req, res) => {
   try {
-    const { submissions } = req.body;
+    const { itemId, sku, quantity, additionalFields, crumb } = req.body;
 
-    if (!Array.isArray(submissions)) {
-      return res.status(400).json({ error: "Invalid submissions" });
+    if (!itemId || !quantity || !crumb) {
+      return res.status(400).json({ error: "Missing required fields." });
     }
 
-    const lineItems = submissions.map(item => ({
-      productId: item.productId,
-      quantity: item.quantity || 1
-    }));
-
-    const payload = { lineItems };
-
-    console.log("Payload being sent to Squarespace:", JSON.stringify(payload));
+    // Prepare payload to mimic Squarespace entries endpoint
+    const payload = {
+      itemId: itemId,
+      sku: sku,
+      quantity: quantity.toString(),
+      additionalFields: additionalFields || null,
+      newProductFormRendererEnabled: true
+    };
 
     const response = await fetch(
-      `https://api.squarespace.com/1.0/commerce/cart/items?siteId=${SITE_ID}`,
+      `https://www.rjmachine.com/api/commerce/shopping-cart/entries?crumb=${crumb}`,
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${SQUARESPACE_API_KEY}`,
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          "Origin": "https://www.rjmachine.com",
+          "X-Requested-With": "XMLHttpRequest"
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
+        credentials: "include"
       }
     );
 
     const text = await response.text();
-
-    console.log("Response status:", response.status);
-    console.log("Response text:", text);
-
     if (!response.ok) {
-      console.error("Squarespace API error:", text);
-      return res.status(500).json({ error: "Squarespace API error" });
+      console.error("Squarespace API error:", response.status, text);
+      return res.status(response.status).json({ error: "Squarespace API error", text });
     }
 
-    res.json({ success: true });
+    const json = JSON.parse(text);
+    console.log("Added to cart:", json);
 
+    res.json(json);
   } catch (err) {
     console.error("Server error:", err);
-    res.status(500).json({ error: "Server error" });
+    res.status(500).json({ error: "Server error", details: err.message });
   }
 });
 
